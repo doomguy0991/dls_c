@@ -1,0 +1,39 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Ignore Large Model & Data Files over 10MB
+C4 - Convolutional Neural Networks/Week 4/Face Recognition/nn4.small2.v7.h5
+C2 - Improving Deep Neural Networks Hyperparameter tuning, Regularization and Optimization/Week 3/datasets/train_signs.h5
+C4 - Convolutional Neural Networks/Week 1/datasets/train_signs.h5
+C4 - Convolutional Neural Networks/Week 2/ResNets/datasets/train_signs.h5
+C4 - Convolutional Neural Networks/Week 4/Face Recognition/datasets/train_face.h5
+C5 - Sequence Models/Week 1/Jazz improvisation with LSTM/data/training_example.mp3

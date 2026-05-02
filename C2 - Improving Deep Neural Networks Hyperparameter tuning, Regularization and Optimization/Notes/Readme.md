@@ -173,20 +173,90 @@ Here are the course summary as its given on the course [link](https://www.course
 
 Here are some intuitions:
   - Intuition 1:
-     - If `lambda` is too large - a lot of w's will be close to zeros which will make the NN simpler (you can think of it as it would behave closer to logistic regression).
-     - If `lambda` is good enough it will just reduce some weights that makes the neural network overfit.
+     - If **`lambda` is too large** - a lot of **w's will be close to zeros** which will **make the NN simpler** (you can think of it as it would behave closer to logistic regression).
+     - If **`lambda` is good enough** it will just **reduce some weights** that makes the neural network overfit.
   - Intuition 2 (with _tanh_ activation function):
-     - If `lambda` is too large, w's will be small (close to zero) - will use the linear part of the _tanh_ activation function, so we will go from non linear activation to _roughly_ linear which would make the NN a _roughly_ linear classifier.
+     - If **`lambda` is too large**, **w's will be small** (close to zero) -> **z will become samll** {Z = WX+B} - will use the **linear part of the _tanh_ activation function**, so we will go from non linear activation to _roughly_ linear which would **make the NN a _roughly_ linear classifier**. ans as we know if the activation is liner then nomatter how deep the NN is it's ultimately a Linear regression
      - If `lambda` good enough it will just make some of _tanh_ activations _roughly_ linear which will prevent overfitting.
      
-_**Implementation tip**_: if you implement gradient descent, one of the steps to debug gradient descent is to plot the cost function J as a function of the number of iterations of gradient descent and you want to see that the cost function J decreases **monotonically** after every elevation of gradient descent with regularization. If you plot the old definition of J (no regularization) then you might not see it decrease monotonically.
+_**Implementation tip**_: if you implement gradient descent, one of the steps to **debug gradient descent** is to **plot the cost function J** as a function of the **number of iterations of gradient descent** and you want to see that the cost function J decreases **monotonically** after every elevation of gradient descent with regularization. If you plot the old definition of J (no regularization) then you might not see it decrease monotonically.
 
 
 ### Dropout Regularization
 
 - In most cases Andrew Ng tells that he uses the L2 regularization.
-- The dropout regularization eliminates some neurons/weights on each iteration based on a probability.
-- A most common technique to implement dropout is called "Inverted dropout".
+- The dropout regularization **eliminates some neurons/weights on each iteration based on a probability.**
+- Dropout prevents overfitting by ensuring the network does not become overly reliant on any singlevneuron or specific set of weights. It forces the network to learn redundant representations of   data.
+- A most common technique to implement dropout is called **"Inverted dropout"**.
+- <details>
+  <summary>Click to expand!</summary>
+  
+  ### 1. What is Dropout?
+  Dropout is a powerful regularization technique used to reduce variance and prevent overfitting in deep neural networks. 
+  *   During training, it randomly eliminates (sets to zero) a subset of neurons in a given layer on each iteration.
+  *   The probability of a neuron remaining active is defined by the hyperparameter **`keep_prob`** (where $0 \le keep\_prob \le 1$). For example, if `keep_prob = 0.8`, 80% of the neurons stay active, and 20% are dropped.
+  
+  
+  ### 2. Why Dropout Reduces Overfitting
+  Even though we randomly shut down parts of the network, the model ultimately performs better on unseen data. This happens for three mathematical reasons:
+  
+  1.  **Prevents Feature Co-adaptation:** In a standard network, neurons can become highly dependent on the output of one or two specific neurons from the previous layer. With dropout, the network can never rely on any single input feature because that feature might be randomly dropped in the next iteration.
+  2.  **Forces Weight Distribution:** Because a neuron cannot depend on a single input, it is forced to spread its weights across all of its inputs. This spreading out of weights naturally shrinks the magnitude of individual weights squared ($||W||^2$), producing an effect mathematically similar to L2 Regularization (Weight Decay).
+  3.  **Ensemble Effect:** By dropping different combinations of neurons in every iteration, you are essentially training a large number of smaller, different sub-networks. The final model acts as a combined average (ensemble) of all these smaller networks, leading to a more generalized and robust output.
+  
+  ---
+  
+  ### 3. Implementation: "Inverted Dropout"
+  The most common and computationally efficient way to implement dropout is called **Inverted Dropout**. 
+  
+  **Implementation Code (for layer 3):**
+  ```python
+  keep_prob = 0.8   # 0 <= keep_prob <= 1
+  l = 3             # targeting layer 3
+  
+  # 1. Create the boolean mask
+  d3 = np.random.rand(a[l].shape[0], a[l].shape[1]) < keep_prob
+  
+  # 2. Apply the mask to eliminate neurons
+  a3 = np.multiply(a3, d3)   
+  
+  # 3. Scale up the remaining activations (Inverted Dropout Step)
+  a3 = a3 / keep_prob        
+  ```
+  
+  #### Step-by-Step Breakdown:
+  *   **The Mask ($d3$):** This is a matrix of the exact same shape as the activation matrix $A^{[3]}$. It contains boolean values (1 for True, 0 for False).
+  *   **Element-wise Multiplication:** `np.multiply(a3, d3)` applies the mask. If a position in $d3$ is 0, the corresponding neuron in $a3$ becomes 0 (it is "dropped").
+  
+  ---
+  
+  ### 4. Deep Dive: Why do we divide by `keep_prob`? (The Scaling Step)
+  The critical line of code `a3 = a3 / keep_prob` is what makes this technique "Inverted." This is done to solve a magnitude discrepancy between the Training Phase and the Test Phase.
+  
+  #### The Problem: Magnitude Discrepancy
+  The linear input to the next layer is calculated as $Z^{[l+1]} = W^{[l+1]}A^{[l]} + b^{[l+1]}$.
+  1.  **During Training:** If `keep_prob = 0.8`, 20% of the activations in $A^{[l]}$ are zeroed out. The total sum (signal strength) flowing into $Z^{[l+1]}$ decreases by roughly 20%.
+  2.  **During Testing:** Dropout is turned **OFF** to maximize prediction accuracy. 100% of the neurons are active. Suddenly, $Z^{[l+1]}$ receives a signal strength that is 20% larger than what it was trained to handle. 
+  
+  This shift in magnitude causes the activation functions in subsequent layers to operate in incorrect ranges, ruining the network's predictions.
+  
+  #### The Mathematical Solution: Expected Value
+  In statistics, the **Expected Value** is the average value a variable takes over time. 
+  Let $a_i$ be an activation of a single neuron. With dropout, its expected value drops:
+  $$E[a_{dropout}] = (keep\_prob \times a_i) + ((1 - keep\_prob) \times 0) = keep\_prob \times a_i$$
+  
+  To fix this, we artificially boost the 80% of remaining active neurons during training by dividing them by `keep_prob`.
+  $$E[a_{scaled}] = keep\_prob \times \left( \frac{a_i}{keep\_prob} \right) = a_i$$
+  
+  **Conclusion:** By dividing by `keep_prob` during training, the expected value of the activations remains $a_i$. This ensures that when we switch to test time (using 100% of the neurons), the next layer sees the exact same magnitude of data it was trained on. We don't have to write extra scaling code for the testing phase.
+  
+  ---
+  
+  ### 5. Exam Checklist: Key Operational Rules
+  *   **Iteration-Specific:** A new $d^{[l]}$ mask is generated for **every single pass** (iteration) through the data.
+  *   **Consistent Across Propagation:** The exact same mask $d^{[l]}$ used during forward propagation must be cached and used during backpropagation to ensure gradients are only calculated for active neurons.
+  *   **Test Time:** Do **not** use dropout at test/inference time. You want deterministic output without added noise. Because of the Inverted Dropout scaling step during training, no weight adjustments are necessary at test time.
+</details>
 - Code for Inverted dropout:
 
   ```python
@@ -195,7 +265,8 @@ _**Implementation tip**_: if you implement gradient descent, one of the steps to
   # the generated number that are less than 0.8 will be dropped. 80% stay, 20% dropped
   d3 = np.random.rand(a[l].shape[0], a[l].shape[1]) < keep_prob
 
-  a3 = np.multiply(a3,d3)   # keep only the values in d3
+  # This element-wise multiplication ensures that if d3 is 0, the corresponding activation in a3 becomes 0.
+  a3 = np.multiply(a3,d3)   
 
   # increase a3 to not reduce the expected value of output
   # (ensures that the expected value of a3 remains the same) - to solve the scaling problem
@@ -208,13 +279,16 @@ _**Implementation tip**_: if you implement gradient descent, one of the steps to
 
 - In the previous video, the intuition was that dropout randomly knocks out units in your network. So it's as if on every iteration you're working with a smaller NN, and so using a smaller NN seems like it should have a regularizing effect.
 - Another intuition: can't rely on any one feature, so have to spread out weights.
-- It's possible to show that dropout has a similar effect to L2 regularization.
-- Dropout can have different `keep_prob` per layer.
+- It's possible to show that **dropout has a similar effect to L2 regularization**.
+- Dropout can have **different `keep_prob` per layer.**
 - The input layer dropout has to be near 1 (or 1 - no dropout) because you don't want to eliminate a lot of features.
 - If you're more worried about some layers overfitting than others, you can set a lower `keep_prob` for some layers than others. The downside is, this gives you even more hyperparameters to search for using cross-validation. One other alternative might be to have some layers where you apply dropout and some layers where you don't apply dropout and then just have one hyperparameter, which is a `keep_prob` for the layers for which you do apply dropouts.
-- A lot of researchers are using dropout with Computer Vision (CV) because they have a very big input size and almost never have enough data, so overfitting is the usual problem. And dropout is a regularization technique to prevent overfitting.
-- A downside of dropout is that the cost function J is not well defined and it will be hard to debug (plot J by iteration).
-  - To solve that you'll need to turn off dropout, set all the `keep_prob`s to 1, and then run the code and check that it monotonically decreases J and then turn on the dropouts again.
+- A lot of researchers are using **dropout with Computer Vision (CV)** because **they have a very big input size and almost never have enough data, so overfitting is the usual problem**. And dropout is a regularization technique to prevent overfitting.
+- A downside of dropout is that the **cost function J is not well defined** and it will be **hard to debug** (plot J by iteration).
+  - To solve that you'll need
+    - to turn off dropout, set all the `keep_prob`s to 1,
+    - and then run the code and check that it monotonically decreases J and
+    - then turn on the dropouts again.
 
 ### Other regularization methods
 
